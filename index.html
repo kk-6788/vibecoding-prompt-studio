@@ -12,6 +12,26 @@
   --ok:#16A34A; --warn:#D97706; --err:#DC2626;
   --radius:8px;
 }
+/* ===== 配色主题（顶栏可切换） ===== */
+body[data-theme="mint"]{
+  --bg:#F1F8F4; --panel:#ffffff; --panel2:#EAF4EE; --line:#D6E8DD;
+  --txt:#1F2B25; --sub:#47685A; --dim:#7C988C;
+  --acc:#0EA47A; --acc-soft:#DFF2E9; --acc-deep:#0B7A5B;
+}
+body[data-theme="sunset"]{
+  --bg:#FAF6F1; --panel:#ffffff; --panel2:#F6EFE6; --line:#EDE0D2;
+  --txt:#2B231C; --sub:#6B5948; --dim:#97836E;
+  --acc:#E8610C; --acc-soft:#FCEAD8; --acc-deep:#B84A06;
+}
+body[data-theme="dark"]{
+  --bg:#11151C; --panel:#1A2029; --panel2:#222A35; --line:#2E3A48;
+  --txt:#E6EAF0; --sub:#9AA8B8; --dim:#6C7A8C;
+  --acc:#3E7BFF; --acc-soft:#1E2B45; --acc-deep:#6C9BFF;
+  --ok:#34D399; --warn:#FBBF24; --err:#F87171;
+}
+body[data-theme="dark"] .chk.ok{color:#C9E8D2}
+body[data-theme="dark"] .chk.warn{color:#F4D3A0}
+body[data-theme="dark"] .chk.err{color:#F5C2C2}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
 body{
@@ -25,7 +45,7 @@ a{color:var(--acc);text-decoration:none}
 .topbar{
   position:sticky;top:0;z-index:10;
   display:flex;align-items:center;gap:16px;
-  padding:12px 24px; background:rgba(255,255,255,.96);
+  padding:12px 24px; background:var(--panel);
   border-bottom:1px solid var(--line); flex-wrap:wrap;
 }
 .brand{display:flex;align-items:baseline;gap:10px;min-width:0}
@@ -63,12 +83,12 @@ a{color:var(--acc);text-decoration:none}
 label.f{display:block;font-size:13px;color:var(--sub);margin:10px 0 4px}
 input[type=text],input[type=number],select,textarea{
   width:100%;min-width:0;box-sizing:border-box;
-  background:#ffffff;border:1px solid var(--line);border-radius:6px;
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;
   color:var(--txt);font-size:15px;font-family:inherit;
   padding:9px 11px; line-height:1.5;
 }
 textarea{resize:vertical;min-height:64px}
-input:focus,select:focus,textarea:focus{border-color:var(--line);background:#ffffff;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--line);background:var(--panel);outline:none}
 input::placeholder,textarea::placeholder{color:var(--dim)}
 select{cursor:pointer;appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),linear-gradient(135deg,var(--dim) 50%,transparent 50%);
@@ -86,15 +106,15 @@ select{cursor:pointer;appearance:none;
 .item .del:hover{color:var(--err)}
 .add-btn{
   margin-top:10px;width:100%;text-align:center;
-  border:1px dashed #C7D0DC;background:transparent;color:var(--sub);
+  border:1px dashed var(--line);background:transparent;color:var(--sub);
   padding:9px;border-radius:6px;cursor:pointer;font-size:14px;transition:border-color .2s,color .2s;
 }
 .add-btn:hover{border-color:var(--acc);color:var(--acc)}
 /* ===== 输出 ===== */
 .prompt-box{
-  background:#FFFFFF;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
   padding:16px 18px;font-family:'Cascadia Mono','Consolas',monospace;font-size:13.5px;line-height:1.75;
-  white-space:pre-wrap;word-break:break-word;color:#24292F;min-height:240px;max-height:560px;overflow:auto;
+  white-space:pre-wrap;word-break:break-word;color:var(--txt);min-height:240px;max-height:560px;overflow:auto;
 }
 .prompt-box .empty{color:var(--dim);font-family:inherit}
 .chk-title{font-size:14px;font-weight:600;color:var(--sub);letter-spacing:2px;display:flex;align-items:center;gap:8px;margin-bottom:10px}
@@ -139,6 +159,12 @@ select{cursor:pointer;appearance:none;
     <span class="tag">AI 短剧分镜提示词生成器</span>
   </div>
   <div class="top-actions">
+    <select id="theme" onchange="applyTheme(this.value)" style="width:auto;padding:8px 10px;font-size:13px;margin:0" title="网页配色">
+      <option value="blue">清爽蓝</option>
+      <option value="mint">薄荷绿</option>
+      <option value="sunset">暖日落</option>
+      <option value="dark">深空黑</option>
+    </select>
     <button class="btn ghost" onclick="loadDemo()">载入示例</button>
     <button class="btn ghost" onclick="clearAll()">清空</button>
     <button class="btn primary" onclick="copyPrompt()">复制 Prompt</button>
@@ -155,6 +181,15 @@ select{cursor:pointer;appearance:none;
       <input type="text" id="shotName" placeholder="例：镜3 · 办公室白板前" oninput="render()">
       <div class="row2">
         <div>
+          <label class="f">目标平台 <span style="color:var(--dim);font-weight:400">（只影响引用语法，prompt 主体全平台通用）</span></label>
+          <select id="platform" onchange="render()">
+            <option value="generic" selected>通用（LibLib / 小云雀 / 可灵 / Vidu 等）</option>
+            <option value="liblib">LibLib TV（参考图编号）</option>
+            <option value="xiaoyunque">小云雀（@道具引用）</option>
+            <option value="kling">可灵（参考图引用）</option>
+          </select>
+        </div>
+        <div>
           <label class="f">视频模型</label>
           <select id="model" onchange="render()">
             <option value="seedance25">Seedance 2.5（4–30s）</option>
@@ -164,6 +199,8 @@ select{cursor:pointer;appearance:none;
             <option value="other">其他 / 未定</option>
           </select>
         </div>
+      </div>
+      <div class="row2">
         <div>
           <label class="f">画幅</label>
           <select id="ratio" onchange="render()">
@@ -171,23 +208,19 @@ select{cursor:pointer;appearance:none;
             <option value="竖屏9:16">竖屏 9:16</option>
           </select>
         </div>
-      </div>
-      <div class="row2">
         <div>
           <label class="f">目标时长（秒）</label>
           <input type="number" id="duration" min="1" max="120" value="8" oninput="render()">
         </div>
-        <div>
-          <label class="f">语速（字/分钟）</label>
-          <input type="number" id="wpm" min="100" max="400" value="250" oninput="render()">
-        </div>
       </div>
+      <label class="f">语速（字/分钟）</label>
+      <input type="number" id="wpm" min="100" max="400" value="250" oninput="render()">
       <label class="f">场景 · 空间描述（从哪来/在哪/什么布局）</label>
       <textarea id="scene" placeholder="例：办公室白板前，阳光从右侧窗户斜照进来，桌上散着几件样衣和一把直尺" oninput="render()"></textarea>
       <label class="f">光线 · 氛围</label>
       <input type="text" id="light" placeholder="例：明亮自然光，柔和，温暖" value="" oninput="render()">
-      <label class="f">参考图（上传到 LibTV 后填编号，多个用、隔开）</label>
-      <input type="text" id="refs" placeholder="例：图1 场景空镜图、图2 角色正面图" oninput="render()">
+      <label class="f">参考图 / 道具引用 <span style="color:var(--dim);font-weight:400">（按目标平台语法填）</span></label>
+      <input type="text" id="refs" placeholder="通用/LibLib：图1 场景空镜图、图2 角色正面图；小云雀：@场景空镜图、@角色正面图" oninput="render()">
     </div>
 
     <div class="card">
@@ -216,7 +249,7 @@ select{cursor:pointer;appearance:none;
   <!-- ============ 右侧输出 ============ -->
   <div class="output-panel">
     <div class="card">
-      <h2>生成 Prompt <span class="hint">实时生成 · 可直接粘到 LibTV</span></h2>
+      <h2>生成 Prompt <span class="hint">实时生成 · 全平台通用，LibLib / 小云雀 / 可灵 / Vidu 均可粘贴</span></h2>
       <div class="stats" id="stats"></div>
       <div class="prompt-box" id="promptBox"><span class="empty">在左侧填写分镜信息，这里会自动生成完整的视频 Prompt。填写完成后点「载入示例」看看效果。</span></div>
     </div>
@@ -243,6 +276,14 @@ var MODELS = {
   other:         { label:'其他', min:null, max:null }
 };
 
+/* 目标平台（只影响参考图/道具的引用语法，prompt 主体全平台通用） */
+var PLATFORMS = {
+  generic:    '通用',
+  liblib:     'LibLib TV',
+  xiaoyunque: '小云雀',
+  kling:      '可灵'
+};
+
 /* 高危动作词：AI 视频模型渲染翻车高发区 */
 var DANGER_ACTIONS = [
   { words:['走进来','走出去','走进门','走出门','迈步','行走','走路','跨进门'],
@@ -250,7 +291,7 @@ var DANGER_ACTIONS = [
   { words:['开门','推门','打开门','走出房间','进门','关门'],
     fix:'「开门+走出来」等连续动作易穿帮（门没开人先出）。简化动作描述，让观众脑补前因。' },
   { words:['游泳','溺水','挣扎','扑腾','落水'],
-    fix:'水中动作高危（四肢不可见/原地扑腾）。改浅水试探或岸边观望，跑完必须 video_analyze 验证。' }
+    fix:'水中动作高危（四肢不可见/原地扑腾）。改浅水试探或岸边观望，跑完必须逐帧回看验证。' }
 ];
 
 /* 台词情绪锚定词库（自动补强用） */
@@ -273,7 +314,7 @@ function readInputs(){
   window.F = {
     shotName:q('shotName'), scene:q('scene'), light:q('light'), refs:q('refs'),
     action:q('action'), extra:q('extra'),
-    model:q('model'), ratio:q('ratio'),
+    model:q('model'), ratio:q('ratio'), platform:q('platform'),
     duration:parseFloat(q('duration'))||0,
     wpm:parseFloat(q('wpm'))||250
   };
@@ -291,10 +332,14 @@ function buildPrompt(){
   var light = F.light || '明亮自然光，柔和';
   parts.push('STYLE: 3D卡通萌系写实（皮克斯风），' + light + '，' + F.ratio + '。');
 
-  /* 2. 场景段（有参考图则首句引用） */
+  /* 2. 场景段（有参考图则首句引用，按目标平台语法） */
   var sceneParts = [];
   if(F.refs){
-    sceneParts.push('参考' + F.refs + '。');
+    if(F.platform === 'xiaoyunque' && F.refs.indexOf('@') >= 0){
+      sceneParts.push(F.refs + '。');  /* 小云雀用 @道具名 引用，不加「参考」前缀 */
+    }else{
+      sceneParts.push('参考' + F.refs + '。');
+    }
   }
   if(F.scene){
     sceneParts.push(F.scene);
@@ -374,7 +419,7 @@ function runChecks(prompt){
   /* C3 台词内破折号（说话人归属错乱） */
   F.lines.forEach(function(l, i){
     if(l.text && l.text.indexOf('——') >= 0){
-      checks.push({ lv:'warn', msg:'台词' + (i+1) + '含破折号 ——', fix:'换成逗号。破折号会让 Seedance 把说话人归属搞混。' });
+      checks.push({ lv:'warn', msg:'台词' + (i+1) + '含破折号 ——', fix:'换成逗号。破折号会让部分视频模型把说话人归属搞混。' });
     }
   });
 
@@ -410,7 +455,7 @@ function runChecks(prompt){
   var m = MODELS[F.model] || MODELS.other;
   if(F.duration > 0){
     if(m.min && F.duration < m.min){
-      checks.push({ lv:'err', msg:'时长 ' + F.duration + 's 低于 ' + m.label + ' 最小 ' + m.min + 's', fix:'按模型最小时长反推剧本，别写 3s 再用 -t 裁剪。' });
+      checks.push({ lv:'err', msg:'时长 ' + F.duration + 's 低于 ' + m.label + ' 最小 ' + m.min + 's', fix:'按模型最小时长反推剧本，别写低于模型下限的短分镜。' });
     }
     if(m.max && F.duration > m.max){
       checks.push({ lv:'err', msg:'时长 ' + F.duration + 's 超过 ' + m.label + ' 上限 ' + m.max + 's', fix:'该模型单次最多 ' + m.max + 's，长内容拆成多个分镜。' });
@@ -452,6 +497,7 @@ function runChecks(prompt){
   var errN = checks.filter(function(c){return c.lv==='err';}).length;
   var txt = document.getElementById('stats');
   txt.innerHTML =
+    '<span>平台：<b>' + (PLATFORMS[F.platform] || '通用') + '</b></span>' +
     '<span>模型：<b>' + (m?m.label:'') + '</b></span>' +
     '<span>画幅：<b>' + (F.ratio||'') + '</b></span>' +
     '<span>台词字数：<b>' + allText.length + '</b></span>' +
@@ -566,7 +612,7 @@ function fallbackCopy(text){
 function flash(msg){
   var b = document.createElement('div');
   b.textContent = msg;
-  b.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#295AFF;color:#ffffff;padding:10px 18px;border-radius:6px;box-shadow:0 4px 14px rgba(41,90,255,.3);z-index:99;font-size:14px';
+  b.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--acc);color:#ffffff;padding:10px 18px;border-radius:6px;box-shadow:0 4px 14px rgba(41,90,255,.3);z-index:99;font-size:14px';
   document.body.appendChild(b);
   setTimeout(function(){ b.remove(); }, 1500);
 }
@@ -579,6 +625,21 @@ function clearAll(){
   });
   var d=document.getElementById('duration'); if(d) d.value='8';
   renderChars(); renderLines(); render();
+}
+
+/* ============ 配色主题切换 ============ */
+function applyTheme(v){
+  if(!v || v === 'blue'){ document.body.removeAttribute('data-theme'); }
+  else { document.body.setAttribute('data-theme', v); }
+  try{ localStorage.setItem('pf-theme', v || 'blue'); }catch(e){}
+}
+
+function initTheme(){
+  var t = 'blue';
+  try{ t = localStorage.getItem('pf-theme') || 'blue'; }catch(e){}
+  var sel = document.getElementById('theme');
+  if(sel) sel.value = t;
+  applyTheme(t);
 }
 
 function loadDemo(){
@@ -606,6 +667,7 @@ function loadDemo(){
 renderChars();
 renderLines();
 render();
+initTheme();
 </script>
 </body>
 </html>
