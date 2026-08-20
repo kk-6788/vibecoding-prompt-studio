@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt 工坊 · AI短剧分镜提示词生成器</title>
+<style>
+:root{
+  --bg:#F5F7FA; --panel:#ffffff; --panel2:#F0F3F7; --line:#E1E6EE;
+  --txt:#1F2328; --sub:#5A6472; --dim:#8A93A3;
+  --acc:#295AFF; --acc-soft:#E8EDFF; --acc-deep:#1E3FB8;
+  --ok:#16A34A; --warn:#D97706; --err:#DC2626;
+  --radius:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--txt);
+  font-family:'Segoe UI','Microsoft YaHei','PingFang SC',system-ui,sans-serif;
+  font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--acc);text-decoration:none}
+/* ===== 顶栏 ===== */
+.topbar{
+  position:sticky;top:0;z-index:10;
+  display:flex;align-items:center;gap:16px;
+  padding:12px 24px; background:rgba(255,255,255,.96);
+  border-bottom:1px solid var(--line); flex-wrap:wrap;
+}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand h1{font-size:20px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
+.brand h1 .dot{color:var(--acc)}
+.brand .tag{font-size:13px;color:var(--sub);white-space:nowrap}
+.top-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+/* ===== 按钮 ===== */
+.btn{
+  appearance:none;cursor:pointer;border-radius:6px;
+  font-size:14px;line-height:1;padding:10px 14px;
+  border:1px solid var(--line); background:#ffffff; color:var(--txt);
+  transition:filter .2s;
+}
+.btn:hover{filter:brightness(.97)}
+.btn:active{transform:scale(.96)}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:#ffffff;font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn:focus{outline:none}
+/* ===== 主布局 ===== */
+.main{display:flex;gap:20px;padding:20px 24px 60px;align-items:flex-start;max-width:1500px;margin:0 auto}
+.form-panel{width:520px;flex-shrink:0;position:sticky;top:74px;display:flex;flex-direction:column;gap:14px}
+.output-panel{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px}
+/* ===== 卡片 ===== */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h2{
+  font-size:14px;font-weight:600;color:var(--sub);letter-spacing:2px;
+  display:flex;align-items:center;gap:8px;margin-bottom:12px;
+  padding-bottom:8px;border-bottom:1px solid var(--line);
+}
+.card h2::before{content:"";width:14px;height:2px;background:var(--acc);flex-shrink:0}
+.card h2 .hint{margin-left:auto;font-size:12px;color:var(--dim);letter-spacing:0;font-weight:400}
+/* ===== 表单 ===== */
+label.f{display:block;font-size:13px;color:var(--sub);margin:10px 0 4px}
+input[type=text],input[type=number],select,textarea{
+  width:100%;min-width:0;box-sizing:border-box;
+  background:#ffffff;border:1px solid var(--line);border-radius:6px;
+  color:var(--txt);font-size:15px;font-family:inherit;
+  padding:9px 11px; line-height:1.5;
+}
+textarea{resize:vertical;min-height:64px}
+input:focus,select:focus,textarea:focus{border-color:var(--line);background:#ffffff;outline:none}
+input::placeholder,textarea::placeholder{color:var(--dim)}
+select{cursor:pointer;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),linear-gradient(135deg,var(--dim) 50%,transparent 50%);
+  background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;
+  background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* ===== 动态列表 ===== */
+.dyn-list{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.item{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:10px 12px;position:relative}
+.item .idx{position:absolute;top:8px;right:10px;font-size:11px;color:var(--dim);font-family:Consolas,monospace}
+.item .del{
+  position:absolute;top:6px;right:6px;width:22px;height:22px;
+  background:transparent;border:none;color:var(--dim);font-size:15px;cursor:pointer;line-height:1;
+}
+.item .del:hover{color:var(--err)}
+.add-btn{
+  margin-top:10px;width:100%;text-align:center;
+  border:1px dashed #C7D0DC;background:transparent;color:var(--sub);
+  padding:9px;border-radius:6px;cursor:pointer;font-size:14px;transition:border-color .2s,color .2s;
+}
+.add-btn:hover{border-color:var(--acc);color:var(--acc)}
+/* ===== 输出 ===== */
+.prompt-box{
+  background:#FFFFFF;border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 18px;font-family:'Cascadia Mono','Consolas',monospace;font-size:13.5px;line-height:1.75;
+  white-space:pre-wrap;word-break:break-word;color:#24292F;min-height:240px;max-height:560px;overflow:auto;
+}
+.prompt-box .empty{color:var(--dim);font-family:inherit}
+.chk-title{font-size:14px;font-weight:600;color:var(--sub);letter-spacing:2px;display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.chk-title::before{content:"";width:14px;height:2px;background:var(--acc)}
+.chk-list{display:flex;flex-direction:column;gap:6px}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5;padding:7px 12px;border-radius:6px;background:var(--panel2);border:1px solid var(--line)}
+.chk .c{flex-shrink:0;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:2px}
+.chk.ok .c{background:#E8F5EC;color:var(--ok)}
+.chk.warn .c{background:#FDF0E2;color:var(--warn)}
+.chk.err .c{background:#FDECEC;color:var(--err)}
+.chk.ok{color:#2F3A33}
+.chk.warn{color:#8A5200}
+.chk.err{color:#A11C1C}
+.chk .msg b{font-weight:600}
+.chk .msg .fix{color:var(--sub);font-size:13px;display:block;margin-top:1px}
+.summary{margin-top:10px;font-size:13px;color:var(--sub);text-align:right}
+.stats{display:flex;gap:14px;font-size:13px;color:var(--sub);margin-bottom:10px;flex-wrap:wrap}
+.stats b{color:var(--txt)}
+/* ===== 响应式 ===== */
+@media (max-width:1080px){
+  .main{flex-direction:column}
+  .form-panel{width:100%;position:static}
+}
+@media (max-width:600px){
+  .main{padding:16px 14px 40px}
+  .row2{grid-template-columns:1fr}
+  .brand .tag{display:none}
+}
+/* 打印隐藏表单 */
+@media print{
+  .topbar,.form-panel,.chk-list,.chk-title,.stats,.summary,.btn,.add-btn,.top-actions{display:none!important}
+  .main{display:block;padding:0}
+  .output-panel{width:100%}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <h1>Prompt 工坊<span class="dot">.</span></h1>
+    <span class="tag">AI 短剧分镜提示词生成器</span>
+  </div>
+  <div class="top-actions">
+    <button class="btn ghost" onclick="loadDemo()">载入示例</button>
+    <button class="btn ghost" onclick="clearAll()">清空</button>
+    <button class="btn primary" onclick="copyPrompt()">复制 Prompt</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- ============ 左侧表单 ============ -->
+  <div class="form-panel">
+
+    <div class="card">
+      <h2>分镜基础 <span class="hint">这镜在讲什么</span></h2>
+      <label class="f">分镜名称（可选）</label>
+      <input type="text" id="shotName" placeholder="例：镜3 · 办公室白板前" oninput="render()">
+      <div class="row2">
+        <div>
+          <label class="f">视频模型</label>
+          <select id="model" onchange="render()">
+            <option value="seedance25">Seedance 2.5（4–30s）</option>
+            <option value="seedance20mini">Seedance 2.0 Mini（≤15s）</option>
+            <option value="seedance15pro">Seedance 1.5 Pro（免费 ≤12s）</option>
+            <option value="kling30">Kling 3.0 Turbo（≥5s）</option>
+            <option value="other">其他 / 未定</option>
+          </select>
+        </div>
+        <div>
+          <label class="f">画幅</label>
+          <select id="ratio" onchange="render()">
+            <option value="横屏16:9">横屏 16:9</option>
+            <option value="竖屏9:16">竖屏 9:16</option>
+          </select>
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label class="f">目标时长（秒）</label>
+          <input type="number" id="duration" min="1" max="120" value="8" oninput="render()">
+        </div>
+        <div>
+          <label class="f">语速（字/分钟）</label>
+          <input type="number" id="wpm" min="100" max="400" value="250" oninput="render()">
+        </div>
+      </div>
+      <label class="f">场景 · 空间描述（从哪来/在哪/什么布局）</label>
+      <textarea id="scene" placeholder="例：办公室白板前，阳光从右侧窗户斜照进来，桌上散着几件样衣和一把直尺" oninput="render()"></textarea>
+      <label class="f">光线 · 氛围</label>
+      <input type="text" id="light" placeholder="例：明亮自然光，柔和，温暖" value="" oninput="render()">
+      <label class="f">参考图（上传到 LibTV 后填编号，多个用、隔开）</label>
+      <input type="text" id="refs" placeholder="例：图1 场景空镜图、图2 角色正面图" oninput="render()">
+    </div>
+
+    <div class="card">
+      <h2>角色 <span class="hint">至少一个，同框多角色要区分</span></h2>
+      <div class="dyn-list" id="charList"></div>
+      <button class="add-btn" onclick="addChar()">+ 添加角色</button>
+    </div>
+
+    <div class="card">
+      <h2>动作 <span class="hint">物理锚定：从哪拿→怎么做→结果</span></h2>
+      <textarea id="action" placeholder="例：角色一走到白板前站定，尾巴尖轻轻晃了两下，抬手指向板上的草图" oninput="render()"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>台词 <span class="hint">每句配说话人 + 情绪锚定</span></h2>
+      <div class="dyn-list" id="lineList"></div>
+      <button class="add-btn" onclick="addLine()">+ 添加台词</button>
+    </div>
+
+    <div class="card">
+      <h2>附加约束 <span class="hint">选填</span></h2>
+      <textarea id="extra" placeholder="例：服装约束——角色一穿鹅黄色T恤；道具——白板笔从笔槽里拿" oninput="render()"></textarea>
+    </div>
+  </div>
+
+  <!-- ============ 右侧输出 ============ -->
+  <div class="output-panel">
+    <div class="card">
+      <h2>生成 Prompt <span class="hint">实时生成 · 可直接粘到 LibTV</span></h2>
+      <div class="stats" id="stats"></div>
+      <div class="prompt-box" id="promptBox"><span class="empty">在左侧填写分镜信息，这里会自动生成完整的视频 Prompt。填写完成后点「载入示例」看看效果。</span></div>
+    </div>
+    <div class="card">
+      <div class="chk-title">踩坑检查</div>
+      <div class="chk-list" id="chkList"></div>
+      <div class="summary" id="summary"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+ * Prompt 工坊 — 规则引擎
+ * 规则来源：KK 三个月 AI 短剧实战踩坑沉淀（2026.7-8）
+ * ================================================================ */
+
+/* 模型约束表 */
+var MODELS = {
+  seedance25:    { label:'Seedance 2.5', min:4,  max:30 },
+  seedance20mini:{ label:'Seedance 2.0 Mini', min:1, max:15 },
+  seedance15pro: { label:'Seedance 1.5 Pro', min:1, max:12 },
+  kling30:       { label:'Kling 3.0 Turbo', min:5, max:null },
+  other:         { label:'其他', min:null, max:null }
+};
+
+/* 高危动作词：AI 视频模型渲染翻车高发区 */
+var DANGER_ACTIONS = [
+  { words:['走进来','走出去','走进门','走出门','迈步','行走','走路','跨进门'],
+    fix:'Q版角色避免写行走动作（AI 可能按四脚猫渲染）。改用状态描述：已坐在凳子上 / 已站在门口。' },
+  { words:['开门','推门','打开门','走出房间','进门','关门'],
+    fix:'「开门+走出来」等连续动作易穿帮（门没开人先出）。简化动作描述，让观众脑补前因。' },
+  { words:['游泳','溺水','挣扎','扑腾','落水'],
+    fix:'水中动作高危（四肢不可见/原地扑腾）。改浅水试探或岸边观望，跑完必须 video_analyze 验证。' }
+];
+
+/* 台词情绪锚定词库（自动补强用） */
+var EMOTION_WORDS = ['的语气','轻声','随口','喃喃','若有所思','笃定','不太确定','难受','兴奋','犹豫','慌张','冷静','委屈','得意','叹气'];
+
+/* ============ 状态 ============ */
+var chars = [ { name:'角色一', look:'', cloth:'', ref:'' } ];
+var lines = [ { speaker:'', emotion:'', text:'' } ];
+
+/* ============ 渲染入口 ============ */
+function render(){
+  readInputs();
+  var prompt = buildPrompt();
+  document.getElementById('promptBox').innerHTML = escapeHtml(prompt || '') || '<span class="empty">在左侧填写分镜信息，这里会自动生成完整的视频 Prompt。</span>';
+  runChecks(prompt);
+}
+
+function readInputs(){
+  var q = function(id){ var el=document.getElementById(id); return el?el.value.trim():''; };
+  window.F = {
+    shotName:q('shotName'), scene:q('scene'), light:q('light'), refs:q('refs'),
+    action:q('action'), extra:q('extra'),
+    model:q('model'), ratio:q('ratio'),
+    duration:parseFloat(q('duration'))||0,
+    wpm:parseFloat(q('wpm'))||250
+  };
+  window.F.chars = chars.slice();
+  window.F.lines = lines.slice();
+}
+
+/* ============ Prompt 组装 ============ */
+function buildPrompt(){
+  var F = window.F; if(!F) return '';
+  var m = MODELS[F.model] || MODELS.other;
+  var parts = [];
+
+  /* 1. STYLE 行（格式铁则：前缀固定） */
+  var light = F.light || '明亮自然光，柔和';
+  parts.push('STYLE: 3D卡通萌系写实（皮克斯风），' + light + '，' + F.ratio + '。');
+
+  /* 2. 场景段（有参考图则首句引用） */
+  var sceneParts = [];
+  if(F.refs){
+    sceneParts.push('参考' + F.refs + '。');
+  }
+  if(F.scene){
+    sceneParts.push(F.scene);
+  }else if(!F.refs){
+    sceneParts.push('（请描述场景空间与布局）');
+  }
+  parts.push('【场景】' + sceneParts.join(''));
+
+  /* 3. 镜头段（单镜头连续运镜铁则） */
+  parts.push('【镜头】一个连续运动镜头：镜头从一个近景特写开始，匀速缓慢运动，逐渐拉开到中全景，全程运镜平滑不间断。');
+
+  /* 4. 角色段（外貌区分声明法） */
+  var cc = F.chars.filter(function(c){return c.name;});
+  var cTexts = [];
+  for(var i=0;i<cc.length;i++){
+    var c = cc[i];
+    var seg = '角色' + cn(i+1);
+    if(c.ref){ var rref = String(c.ref).indexOf('图') >= 0 ? c.ref : ('图' + c.ref); seg += '（对应参考图' + rref + '）'; }
+    var desc = [];
+    if(c.look) desc.push(c.look);
+    if(c.cloth) desc.push('穿着' + c.cloth);
+    seg += '：' + (desc.length?desc.join('，'):'（补充外貌与服装描述）');
+    cTexts.push(seg);
+  }
+  if(cc.length >= 2){
+    cTexts.push('两个角色长相完全不同，五官、发型、肤色有明显区分。');
+  }
+  parts.push('【角色】' + cTexts.join('。'));
+
+  /* 5. 动作段 */
+  parts.push('【动作】' + (F.action || '（描述角色动作：从哪来→怎么做→可见结果）'));
+
+  /* 6. 台词段（情绪锚定词 + 逗号分隔铁则） */
+  var lns = F.lines.filter(function(l){return l.text;});
+  if(lns.length){
+    var lTexts = [];
+    for(var j=0;j<lns.length;j++){
+      var l = lns[j];
+      var speaker = l.speaker || '角色一';
+      var emotion = l.emotion ? ('（' + l.emotion + '）') : '';
+      lTexts.push(speaker + emotion + '：『' + l.text + '』');
+    }
+    parts.push('【台词】' + lTexts.join('。'));
+  }
+
+  /* 7. 约束 + NO 区 */
+  var extra = F.extra;
+  parts.push('【约束】' + (extra || '保持角色一致性，表情自然。'));
+
+  parts.push('NO区：镜头运动平滑连续，无跳切无硬切无画面突变。');
+
+  return parts.join('\n');
+}
+
+/* ============ 踩坑检查 ============ */
+function runChecks(prompt){
+  var F = window.F; if(!F) return;
+  var checks = [];
+
+  var allText = '';
+  F.lines.forEach(function(l){ allText += l.text; });
+
+  /* C1 台词每句 ≤15 字（台词铁则） */
+  F.lines.forEach(function(l, i){
+    if(l.text && l.text.length > 15){
+      checks.push({ lv:'warn', msg:'台词' + (i+1) + '共 ' + l.text.length + ' 字，超过 15 字', fix:'拆成两句或用口语词压缩，别念稿。' });
+    }
+  });
+
+  /* C2 情绪锚定词缺失（铁则：每句台词前必须有） */
+  F.lines.forEach(function(l, i){
+    if(l.text && !l.emotion){
+      checks.push({ lv:'warn', msg:'台词' + (i+1) + '缺情绪锚定词', fix:'在情绪栏填「难受的语气 / 随口 / 若有所思」等，AI 靠它生成表情语调。' });
+    }
+  });
+
+  /* C3 台词内破折号（说话人归属错乱） */
+  F.lines.forEach(function(l, i){
+    if(l.text && l.text.indexOf('——') >= 0){
+      checks.push({ lv:'warn', msg:'台词' + (i+1) + '含破折号 ——', fix:'换成逗号。破折号会让 Seedance 把说话人归属搞混。' });
+    }
+  });
+
+  /* C4 高危动作词 */
+  DANGER_ACTIONS.forEach(function(d){
+    if(F.action && d.words.some(function(w){ return F.action.indexOf(w) >= 0; })){
+      checks.push({ lv:'err', msg:'动作里检测到高危动作词', fix:d.fix });
+    }
+  });
+
+  /* C5 多角色同框 → 外貌区分声明 */
+  if(F.chars.filter(function(c){return c.name;}).length >= 2){
+    if(!F.chars.some(function(c){ return c.look && c.look.length >= 4; })){
+      checks.push({ lv:'warn', msg:'多角色同框，但外貌区分不明确', fix:'每个角色填外貌特征（脸型/发型/毛色），否则 AI 会混脸。' });
+    }
+    var cloths = F.chars.map(function(c){return c.cloth;}).filter(Boolean);
+    if(cloths.length >= 2){
+      var sets = new Set(cloths.map(function(x){ return x.replace(/色|的/g,''); }));
+      if(sets.size < cloths.length){
+        checks.push({ lv:'warn', msg:'角色服装疑似撞色', fix:'三色分离：每个角色走不同色系方向（鹅黄 / 雾霾蓝 / 橄榄绿）。' });
+      }
+    }
+  }
+
+  /* C6 参考图引用但场景/角色没对齐 */
+  if(F.refs){
+    if(F.scene && F.scene.indexOf('参考') < 0 && prompt.indexOf('【场景】参考') < 0){
+      checks.push({ lv:'info', msg:'已填参考图，场景段已自动加引用', fix:'参考图的视觉状态必须与描述一致，不一致=场景跳变闪烁。' });
+    }
+  }
+
+  /* C7 时长 vs 模型约束 */
+  var m = MODELS[F.model] || MODELS.other;
+  if(F.duration > 0){
+    if(m.min && F.duration < m.min){
+      checks.push({ lv:'err', msg:'时长 ' + F.duration + 's 低于 ' + m.label + ' 最小 ' + m.min + 's', fix:'按模型最小时长反推剧本，别写 3s 再用 -t 裁剪。' });
+    }
+    if(m.max && F.duration > m.max){
+      checks.push({ lv:'err', msg:'时长 ' + F.duration + 's 超过 ' + m.label + ' 上限 ' + m.max + 's', fix:'该模型单次最多 ' + m.max + 's，长内容拆成多个分镜。' });
+    }
+  }
+
+  /* C8 语速超时（公式：字数 ÷ 语速 × 60） */
+  if(F.duration > 0 && allText){
+    var est = Math.round(allText.length / F.wpm * 60);
+    if(est > F.duration + 2){
+      checks.push({ lv:'warn', msg:'台词约需 ' + est + 's，超出目标 ' + F.duration + 's（' + est + ' > ' + F.duration + '+2）', fix:'砍台词或把目标时长加长。超 2s 必须修。' });
+    }else{
+      checks.push({ lv:'ok', msg:'语速合适：台词约 ' + est + 's，目标 ' + F.duration + 's' });
+    }
+  }
+
+  /* C9 台词缺说话人 */
+  F.lines.forEach(function(l, i){
+    if(l.text && !l.speaker){
+      checks.push({ lv:'warn', msg:'台词' + (i+1) + '没选说话人', fix:'从角色下拉里选，AI 才知道谁在开口。' });
+    }
+  });
+
+  /* C10 运镜并列景别（单镜头连续铁则） */
+  if(F.action && /先[^，。]*随后[^，。]*最后/.test(F.action)){
+    checks.push({ lv:'warn', msg:'动作描述疑似「先…随后…最后…」并列结构', fix:'机位段禁止并列景别（=模型渲染多个静止画面硬拼），写成单镜头连续运镜。' });
+  }
+
+  /* C11 基本完整性 */
+  if(!F.scene && !F.refs) checks.push({ lv:'info', msg:'场景描述为空', fix:'填空间布局，角色动作才符合物理逻辑（从哪来→到哪去）。' });
+  if(!F.action) checks.push({ lv:'info', msg:'动作描述为空', fix:'用物理锚定写法：从哪拿→怎么做→可见结果。' });
+  if(!F.lines.some(function(l){return l.text;})) checks.push({ lv:'info', msg:'没有台词', fix:'这镜不需要说话就保持空，需要就填台词。' });
+
+  renderChecks(checks);
+
+  /* 统计 */
+  var okN = checks.filter(function(c){return c.lv==='ok';}).length;
+  var warnN = checks.filter(function(c){return c.lv==='warn';}).length;
+  var errN = checks.filter(function(c){return c.lv==='err';}).length;
+  var txt = document.getElementById('stats');
+  txt.innerHTML =
+    '<span>模型：<b>' + (m?m.label:'') + '</b></span>' +
+    '<span>画幅：<b>' + (F.ratio||'') + '</b></span>' +
+    '<span>台词字数：<b>' + allText.length + '</b></span>' +
+    '<span>检查：<b style="color:var(--ok)">' + okN + '✓</b> <b style="color:var(--warn)">' + warnN + '⚠</b> <b style="color:var(--err)">' + errN + '✕</b></span>';
+  var sum = document.getElementById('summary');
+  if(!errN && !warnN) sum.textContent = '没有踩坑警告，可以跑了。';
+  else sum.textContent = '红色=高危必改，黄色=建议修，灰色=提醒。';
+}
+
+function renderChecks(checks){
+  var box = document.getElementById('chkList');
+  if(!checks.length){
+    box.innerHTML = '<div class="chk ok"><span class="c">✓</span><div class="msg">暂无检查项</div></div>';
+    return;
+  }
+  box.innerHTML = checks.map(function(c){
+    var icon = c.lv==='ok' ? '✓' : (c.lv==='err' ? '✕' : '!');
+    return '<div class="chk ' + c.lv + '"><span class="c">' + icon + '</span><div class="msg"><b>' + c.msg + '</b>' +
+      (c.fix ? '<span class="fix">→ ' + c.fix + '</span>' : '') + '</div></div>';
+  }).join('');
+}
+
+/* ============ 动态列表 ============ */
+function cn(n){ return '一二三四五六七八九十'[n-1] || n; }
+
+function renderChars(){
+  var box = document.getElementById('charList');
+  box.innerHTML = chars.map(function(c, i){
+    return '<div class="item">' +
+      '<span class="idx">角色' + cn(i+1) + '</span>' +
+      '<button class="del" onclick="delChar(' + i + ')">×</button>' +
+      '<label class="f">角色' + cn(i+1) + ' · 外貌特征（脸型/发型/毛色）</label>' +
+      '<input type="text" value="' + escAttr(c.look) + '" placeholder="例：鹅蛋脸暖棕碎发，大琥珀色眼睛" oninput="chars[' + i + '].look=this.value;render()">' +
+      '<label class="f">服装（多角色必须不同色系）</label>' +
+      '<input type="text" value="' + escAttr(c.cloth) + '" placeholder="例：鹅黄色T恤 + 卡其短裤" oninput="chars[' + i + '].cloth=this.value;render()">' +
+      '<label class="f">参考图编号（选填）</label>' +
+      '<input type="text" value="' + escAttr(c.ref) + '" placeholder="例：图2" oninput="chars[' + i + '].ref=this.value;render()">' +
+      '</div>';
+  }).join('');
+}
+
+function addChar(){
+  if(chars.length >= 6){ alert('最多 6 个角色'); return; }
+  chars.push({ name:'角色' + cn(chars.length+1), look:'', cloth:'', ref:'' });
+  renderChars();
+}
+
+function delChar(i){
+  if(chars.length <= 1){ alert('至少保留一个角色'); return; }
+  chars.splice(i, 1);
+  renderChars();
+}
+
+function renderLines(){
+  var box = document.getElementById('lineList');
+  box.innerHTML = lines.map(function(l, i){
+    var opts = chars.map(function(c, j){
+      var name = c.name || ('角色' + cn(j+1));
+      return '<option value="' + escAttr(name) + '"' + (l.speaker===name?' selected':'') + '>' + escHtml(name) + '</option>';
+    }).join('');
+    return '<div class="item">' +
+      '<span class="idx">台词' + (i+1) + '</span>' +
+      '<button class="del" onclick="delLine(' + i + ')">×</button>' +
+      '<label class="f">说话人</label>' +
+      '<select onchange="lines[' + i + '].speaker=this.value;render()">' +
+        '<option value="">（未选）</option>' + opts +
+      '</select>' +
+      '<label class="f">情绪锚定词（铁则：每句必填）</label>' +
+      '<input type="text" value="' + escAttr(l.emotion) + '" placeholder="例：难受的语气 / 随口 / 若有所思" oninput="lines[' + i + '].emotion=this.value;render()">' +
+      '<label class="f">台词内容（≤15字）</label>' +
+      '<textarea style="min-height:44px" oninput="lines[' + i + '].text=this.value;render()">' + escHtml(l.text) + '</textarea>' +
+      '</div>';
+  }).join('');
+}
+
+function addLine(){ lines.push({ speaker:'', emotion:'', text:'' }); renderLines(); }
+function delLine(i){ lines.splice(i, 1); renderLines(); }
+
+/* ============ 工具函数 ============ */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function escHtml(s){ return escapeHtml(s||''); }
+function escAttr(s){ return escapeHtml(s||''); }
+
+function copyPrompt(){
+  var txt = document.getElementById('promptBox').innerText.replace(/^\s*\[空\]\s*$/,'').trim();
+  if(!txt){
+    alert('还没有可复制的 Prompt，先填写分镜信息。');
+    return;
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){
+      flash('已复制到剪贴板');
+    }, function(){ fallbackCopy(txt); });
+  }else{
+    fallbackCopy(txt);
+  }
+}
+
+function fallbackCopy(text){
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); flash('已复制到剪贴板'); }
+  catch(e){ alert('复制失败，请手动选择复制'); }
+  document.body.removeChild(ta);
+}
+
+function flash(msg){
+  var b = document.createElement('div');
+  b.textContent = msg;
+  b.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#295AFF;color:#ffffff;padding:10px 18px;border-radius:6px;box-shadow:0 4px 14px rgba(41,90,255,.3);z-index:99;font-size:14px';
+  document.body.appendChild(b);
+  setTimeout(function(){ b.remove(); }, 1500);
+}
+
+function clearAll(){
+  chars = [ { name:'角色一', look:'', cloth:'', ref:'' } ];
+  lines = [ { speaker:'', emotion:'', text:'' } ];
+  ['shotName','scene','light','refs','action','extra'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
+  var d=document.getElementById('duration'); if(d) d.value='8';
+  renderChars(); renderLines(); render();
+}
+
+function loadDemo(){
+  chars = [
+    { name:'角色一', look:'橘白虎斑猫拟人，圆脸大琥珀色眼睛，白手套', cloth:'鹅黄色T恤 + 卡其短裤', ref:'图2' },
+    { name:'角色二', look:'偏方脸黑色短发，杏眼', cloth:'雾霾蓝T恤', ref:'' }
+  ];
+  lines = [
+    { speaker:'角色一', emotion:'难受的语气', text:'穿上毛都压住了，浑身不对劲儿。' },
+    { speaker:'角色二', emotion:'随口', text:'那是不是尺码挑小了？' }
+  ];
+  document.getElementById('shotName').value = '镜3 · 办公室白板前';
+  document.getElementById('scene').value = '办公室白板前，白板上贴着几张草图，台面上散着样衣和一把直尺，右侧窗户透进自然光';
+  document.getElementById('light').value = '明亮自然光，柔和，温暖';
+  document.getElementById('refs').value = '图1 场景空镜图、图2 角色一正面图';
+  document.getElementById('action').value = '角色一站在白板前，尾巴尖轻轻晃，抬手指向板上的草图';
+  document.getElementById('extra').value = '服装约束：角色一鹅黄色T恤，角色二雾霾蓝T恤，不可改变';
+  document.getElementById('duration').value = '8';
+  document.getElementById('model').value = 'seedance25';
+  document.getElementById('ratio').value = '横屏16:9';
+  renderChars(); renderLines(); render();
+}
+
+/* ============ 初始化 ============ */
+renderChars();
+renderLines();
+render();
+</script>
+</body>
+</html>
