@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prompt 工坊 · AI短剧分镜提示词生成器</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#295AFF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Prompt 工坊">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{
   --bg:#F5F7FA; --panel:#ffffff; --panel2:#F0F3F7; --line:#E1E6EE;
@@ -668,6 +674,11 @@ renderChars();
 renderLines();
 render();
 initTheme();
+
+/* ============ PWA：注册 Service Worker（支持离线 + 添加到主屏幕） ============ */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(function(){});
+}
 </script>
 </body>
 </html>
