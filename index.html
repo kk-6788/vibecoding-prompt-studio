@@ -304,8 +304,24 @@ var DANGER_ACTIONS = [
 var EMOTION_WORDS = ['的语气','轻声','随口','喃喃','若有所思','笃定','不太确定','难受','兴奋','犹豫','慌张','冷静','委屈','得意','叹气'];
 
 /* ============ 状态 ============ */
-var chars = [ { name:'角色一', look:'', cloth:'', ref:'' } ];
+/* PRM-01: 角色带稳定 id，名称按当前顺序派生；增删走统一 sync() 重算派生状态 */
+var _charSeq = 0;
+function charNameAt(i){ return '角色' + cn(i+1); }
+var chars = [ { id:++_charSeq, name:'角色一', look:'', cloth:'', ref:'' } ];
 var lines = [ { speaker:'', emotion:'', text:'' } ];
+
+/* PRM-01: 唯一的派生状态入口——角色按当前顺序重命名，台词 speaker 引用同步修正 */
+function sync(){
+  chars.forEach(function(c, i){ c.name = charNameAt(i); });
+  var valid = {};
+  chars.forEach(function(c){ valid[c.name] = true; });
+  lines.forEach(function(l){
+    if(l.speaker && !valid[l.speaker]){
+      l.speaker = '';  /* PRM-01: 被删角色的 speaker 引用清空，绝不残留孤立名字 */
+    }
+  });
+  renderChars(); renderLines();
+}
 
 /* ============ 渲染入口 ============ */
 function render(){
@@ -436,12 +452,14 @@ function runChecks(prompt){
     }
   });
 
-  /* C5 多角色同框 → 外貌区分声明 */
-  if(F.chars.filter(function(c){return c.name;}).length >= 2){
-    if(!F.chars.some(function(c){ return c.look && c.look.length >= 4; })){
-      checks.push({ lv:'warn', msg:'多角色同框，但外貌区分不明确', fix:'每个角色填外貌特征（脸型/发型/毛色），否则 AI 会混脸。' });
+  /* C5 多角色同框 → 逐个角色检查外貌区分（PRM-02: some() 会漏报未描述的角色） */
+  var named = F.chars.filter(function(c){ return c.name; });
+  if(named.length >= 2){
+    var missing = named.filter(function(c){ return !(c.look && c.look.length >= 4); });
+    if(missing.length){
+      checks.push({ lv:'warn', msg:'多角色同框，' + missing.length + ' 个角色缺外貌描述（' + missing.map(function(c){ return c.name; }).join('、') + '）', fix:'每个角色填外貌特征（脸型/发型/毛色），否则 AI 会混脸。' });
     }
-    var cloths = F.chars.map(function(c){return c.cloth;}).filter(Boolean);
+    var cloths = named.map(function(c){return c.cloth;}).filter(Boolean);
     if(cloths.length >= 2){
       var sets = new Set(cloths.map(function(x){ return x.replace(/色|的/g,''); }));
       if(sets.size < cloths.length){
@@ -457,8 +475,15 @@ function runChecks(prompt){
     }
   }
 
-  /* C7 时长 vs 模型约束 */
+  /* C7 时长 vs 模型约束（PRM-02: 非法数值显式拦截，不静默归零） */
   var m = MODELS[F.model] || MODELS.other;
+  var durRaw = (document.getElementById('duration')||{}).value;
+  if(durRaw !== undefined && durRaw.trim() !== ''){
+    var n = Number(durRaw);
+    if(!isFinite(n) || n <= 0){
+      checks.push({ lv:'err', msg:'时长「' + durRaw + '」不是有效正数', fix:'填 1-60 之间的数字（秒），AI 靠它估算语速与节奏。' });
+    }
+  }
   if(F.duration > 0){
     if(m.min && F.duration < m.min){
       checks.push({ lv:'err', msg:'时长 ' + F.duration + 's 低于 ' + m.label + ' 最小 ' + m.min + 's', fix:'按模型最小时长反推剧本，别写低于模型下限的短分镜。' });
@@ -497,10 +522,12 @@ function runChecks(prompt){
 
   renderChecks(checks);
 
-  /* 统计 */
+  /* 统计（PRM-02: 基础必填缺失 = 草稿，不算"可以跑"） */
   var okN = checks.filter(function(c){return c.lv==='ok';}).length;
   var warnN = checks.filter(function(c){return c.lv==='warn';}).length;
   var errN = checks.filter(function(c){return c.lv==='err';}).length;
+  var infoN = checks.filter(function(c){return c.lv==='info';}).length;
+  var basicsMissing = (!F.scene && !F.refs) || !F.action;
   var txt = document.getElementById('stats');
   txt.innerHTML =
     '<span>平台：<b>' + (PLATFORMS[F.platform] || '通用') + '</b></span>' +
@@ -509,8 +536,10 @@ function runChecks(prompt){
     '<span>台词字数：<b>' + allText.length + '</b></span>' +
     '<span>检查：<b style="color:var(--ok)">' + okN + '✓</b> <b style="color:var(--warn)">' + warnN + '⚠</b> <b style="color:var(--err)">' + errN + '✕</b></span>';
   var sum = document.getElementById('summary');
-  if(!errN && !warnN) sum.textContent = '没有踩坑警告，可以跑了。';
-  else sum.textContent = '红色=高危必改，黄色=建议修，灰色=提醒。';
+  if(errN) sum.textContent = '红色=高危必改，改完再生成。';
+  else if(basicsMissing) sum.textContent = '基础信息不全（场景/动作），当前只能算草稿，不是可运行的完整 Prompt。';
+  else if(warnN || infoN) sum.textContent = '黄色=建议修，灰色=提醒。修完更稳。';
+  else sum.textContent = '没有踩坑警告，可以跑了。';
 }
 
 function renderChecks(checks){
@@ -547,14 +576,14 @@ function renderChars(){
 
 function addChar(){
   if(chars.length >= 6){ alert('最多 6 个角色'); return; }
-  chars.push({ name:'角色' + cn(chars.length+1), look:'', cloth:'', ref:'' });
-  renderChars();
+  chars.push({ id:++_charSeq, name:charNameAt(chars.length), look:'', cloth:'', ref:'' });
+  sync(); render();  /* PRM-01: 新角色立即进入说话人下拉与派生状态 */
 }
 
 function delChar(i){
   if(chars.length <= 1){ alert('至少保留一个角色'); return; }
   chars.splice(i, 1);
-  renderChars();
+  sync(); render();  /* PRM-01: 重命名 + 孤立 speaker 清理 + 双区重渲染 */
 }
 
 function renderLines(){
@@ -580,7 +609,7 @@ function renderLines(){
 }
 
 function addLine(){ lines.push({ speaker:'', emotion:'', text:'' }); renderLines(); }
-function delLine(i){ lines.splice(i, 1); renderLines(); }
+function delLine(i){ lines.splice(i, 1); renderLines(); render(); }  /* PRM-01: 删台词后 prompt 同步重算 */
 
 /* ============ 工具函数 ============ */
 function escapeHtml(s){
@@ -630,7 +659,8 @@ function clearAll(){
     var el=document.getElementById(id); if(el) el.value='';
   });
   var d=document.getElementById('duration'); if(d) d.value='8';
-  renderChars(); renderLines(); render();
+  _charSeq = 1; chars[0].id = 1;
+  sync(); render();
 }
 
 /* ============ 配色主题切换 ============ */
@@ -666,7 +696,8 @@ function loadDemo(){
   document.getElementById('duration').value = '8';
   document.getElementById('model').value = 'seedance25';
   document.getElementById('ratio').value = '横屏16:9';
-  renderChars(); renderLines(); render();
+  _charSeq = 2;
+  sync(); render();
 }
 
 /* ============ 初始化 ============ */
